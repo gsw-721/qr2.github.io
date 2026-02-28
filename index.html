@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ClosetScan</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F6F2EC;
+    --ink: #2C2416;
+    --muted: #8C7B5E;
+    --border: #D9CFC0;
+    --white: #FFFFFF;
+    --radius: 10px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Lato', sans-serif;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+  #loading {
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; flex-direction: column; gap: 12px;
+  }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid var(--border);
+    border-top-color: var(--ink); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* MANAGER */
+  #manager { max-width: 820px; margin: 0 auto; padding: 36px 20px; }
+
+  .manager-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-bottom: 2px solid var(--ink); padding-bottom: 16px; margin-bottom: 36px;
+  }
+  .app-title { font-size: 34px; letter-spacing: -1px; }
+  .app-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .header-btns { display: flex; gap: 10px; align-items: center; }
+
+  .btn-primary {
+    background: var(--ink); color: var(--bg); border: none;
+    padding: 10px 22px; border-radius: var(--radius); cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 0.5px; transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-outline {
+    background: transparent; color: var(--ink); border: 1.5px solid var(--ink);
+    padding: 10px 22px; border-radius: var(--radius); cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 14px; font-weight: 700;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-outline:hover { background: var(--ink); color: var(--bg); }
+
+  .btn-ghost {
+    background: transparent; color: var(--muted); border: 1.5px solid var(--border);
+    padding: 9px 16px; border-radius: var(--radius); cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 13px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--ink); color: var(--ink); }
+
+  .empty-state { text-align: center; padding: 80px 20px; }
+  .empty-icon { font-size: 72px; margin-bottom: 16px; }
+  .empty-title { font-size: 24px; margin-bottom: 8px; }
+  .empty-sub { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+
+  .closet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 20px;
+  }
+
+  .closet-card {
+    background: var(--white); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 2px 14px rgba(44,36,22,0.09);
+    border: 1px solid rgba(44,36,22,0.07);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .closet-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(44,36,22,0.14); }
+
+  .card-top {
+    height: 76px; display: flex; justify-content: space-between;
+    align-items: flex-start; padding: 10px 12px 0;
+  }
+  .card-icon { font-size: 40px; line-height: 1; }
+  .card-delete {
+    background: rgba(0,0,0,0.18); border: none; color: #fff;
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+    font-size: 13px; display: flex; align-items: center; justify-content: center;
+  }
+  .card-body { padding: 12px 16px 16px; }
+  .card-name { font-family: 'Playfair Display', serif; font-size: 17px; margin-bottom: 4px; }
+  .card-loc { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .card-count { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .card-actions { display: flex; gap: 8px; }
+  .card-btn {
+    flex: 1; padding: 8px 0; border-radius: 7px; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-size: 13px; font-weight: 700;
+    border: none; transition: opacity 0.15s;
+  }
+  .card-btn:hover { opacity: 0.8; }
+  .card-btn-open { background: var(--ink); color: var(--bg); }
+  .card-btn-qr { background: transparent; border: 1.5px solid var(--ink) !important; color: var(--ink); }
+
+  .qr-panel {
+    display: none; border-top: 1px solid var(--border);
+    padding: 16px 12px 8px; text-align: center; margin-top: 12px;
+  }
+  .qr-panel.open { display: block; }
+  .qr-panel img { width: 150px; height: 150px; border-radius: 8px; border: 4px solid var(--bg); }
+  .qr-note { font-size: 11px; color: var(--muted); margin: 8px 0 4px; }
+  .qr-url { font-size: 9px; color: #bbb; word-break: break-all; margin-bottom: 8px; }
+  .qr-print-btn {
+    padding: 6px 14px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--ink);
+    font-family: 'Lato', sans-serif;
+  }
+
+  /* CREATE FORM */
+  #create-form { max-width: 500px; margin: 0 auto; padding: 48px 24px; }
+  .form-title { font-size: 28px; margin-bottom: 30px; }
+  .form-label {
+    display: block; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); margin-bottom: 7px;
+  }
+  .form-input {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 15px; font-family: 'Lato', sans-serif;
+    background: var(--white); color: var(--ink); margin-bottom: 22px;
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--ink); }
+  .icon-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; }
+  .icon-btn {
+    font-size: 26px; padding: 8px; border: 2px solid transparent;
+    border-radius: 8px; cursor: pointer; background: var(--white);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .icon-btn:hover { background: var(--bg); }
+  .icon-btn.selected { border-color: var(--ink); background: var(--bg); }
+  .form-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+  /* CLOSET VIEW */
+  #closet-view { min-height: 100vh; }
+  .view-header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 22px 24px; color: #fff;
+  }
+  .view-icon { font-size: 48px; line-height: 1; flex-shrink: 0; }
+  .view-name { font-family: 'Playfair Display', serif; font-size: 24px; }
+  .view-location { font-size: 13px; opacity: 0.85; margin-top: 3px; }
+  .view-home-btn {
+    margin-left: auto; background: rgba(255,255,255,0.22); border: none;
+    color: #fff; font-size: 20px; width: 42px; height: 42px;
+    border-radius: 50%; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .view-home-btn:hover { background: rgba(255,255,255,0.35); }
+
+  .view-body { max-width: 580px; margin: 0 auto; padding: 30px 20px; }
+  .items-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .items-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted);
+  }
+
+  .item-list { list-style: none; margin-bottom: 20px; }
+  .item-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; background: var(--white);
+    border-radius: 9px; margin-bottom: 8px;
+    box-shadow: 0 1px 5px rgba(44,36,22,0.07);
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+
+  .item-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .item-text { flex: 1; font-size: 15px; }
+  .item-date { font-size: 11px; color: #C0B090; white-space: nowrap; }
+  .item-remove {
+    background: none; border: none; color: #C0B090; cursor: pointer;
+    font-size: 15px; padding: 0 2px; line-height: 1; transition: color 0.15s;
+  }
+  .item-remove:hover { color: #d9534f; }
+
+  .empty-items {
+    text-align: center; padding: 32px 0; color: #B0A080;
+    font-size: 15px; margin-bottom: 20px;
+  }
+
+  .add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .add-input {
+    flex: 1; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 15px; font-family: 'Lato', sans-serif;
+    background: var(--white); color: var(--ink); outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-input:focus { border-color: var(--ink); }
+  .add-btn {
+    width: 46px; height: 46px; border: none; border-radius: 8px;
+    color: #fff; font-size: 26px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: opacity 0.15s;
+  }
+  .add-btn:hover { opacity: 0.85; }
+
+  .save-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 9px;
+    color: #fff; font-size: 16px; cursor: pointer;
+    font-family: 'Lato', sans-serif; font-weight: 700;
+    transition: opacity 0.15s; display: none;
+  }
+  .save-btn:hover { opacity: 0.85; }
+  .save-btn.visible { display: block; }
+
+  .saved-msg {
+    text-align: center; color: #7EB5A6; font-size: 14px;
+    margin-top: 10px; display: none;
+  }
+  .saved-msg.visible { display: block; }
+
+  /* NOT FOUND */
+  #not-found {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 100vh; text-align: center;
+    gap: 10px; padding: 20px;
+  }
+  #not-found.active { display: flex; }
+
+  /* SETTINGS MODAL */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0;
+    background: rgba(44,36,22,0.4); z-index: 100;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--white); border-radius: 14px; padding: 32px;
+    max-width: 480px; width: 100%;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+  .modal h2 { font-size: 22px; margin-bottom: 6px; }
+  .modal-sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
+  .modal-section { margin-bottom: 22px; }
+  .modal-section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); margin-bottom: 10px;
+  }
+  .debug-box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; font-size: 12px;
+    font-family: monospace; color: var(--ink); word-break: break-all;
+    line-height: 1.7; margin-bottom: 10px;
+  }
+  .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .modal-close {
+    margin-top: 8px; width: 100%; padding: 11px;
+    background: var(--bg); border: 1.5px solid var(--border);
+    border-radius: 8px; cursor: pointer; font-family: 'Lato', sans-serif;
+    font-size: 14px; color: var(--ink);
+  }
+
+  /* STATUS BANNER */
+  .status-banner {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px;
+    padding: 10px 14px; font-size: 13px; color: #7a5f00;
+    margin-bottom: 20px; display: none;
+  }
+  .status-banner.show { display: block; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: var(--bg); padding: 12px 24px;
+    border-radius: 99px; font-size: 14px; font-weight: 700;
+    transition: transform 0.3s ease; z-index: 200; pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <span style="color:var(--muted);font-size:15px;">Loading ClosetScan…</span>
+</div>
+
+<!-- Manager -->
+<div id="manager" class="view">
+  <div class="manager-header">
+    <div>
+      <h1 class="app-title">ClosetScan</h1>
+      <div class="app-sub">QR-powered storage manager</div>
+    </div>
+    <div class="header-btns">
+      <button class="btn-ghost" onclick="openSettings()">⚙ Settings</button>
+      <button class="btn-primary" onclick="showCreateForm()">+ New Closet</button>
+    </div>
+  </div>
+  <div class="status-banner" id="status-banner"></div>
+  <div id="closet-grid-wrap"></div>
+</div>
+
+<!-- Create Form -->
+<div id="create-form" class="view">
+  <h2 class="form-title" style="max-width:500px;margin:0 auto;padding:48px 24px 0">New Closet</h2>
+  <div style="max-width:500px;margin:0 auto;padding:24px 24px 48px">
+    <label class="form-label">Closet Name</label>
+    <input class="form-input" id="input-name" placeholder="e.g. Master Bedroom Closet" />
+    <label class="form-label">Location (optional)</label>
+    <input class="form-input" id="input-location" placeholder="e.g. Upstairs hallway" />
+    <label class="form-label">Icon</label>
+    <div class="icon-grid" id="icon-grid"></div>
+    <div class="form-actions">
+      <button class="btn-outline" onclick="showView('manager');renderGrid()">Cancel</button>
+      <button class="btn-primary" onclick="createCloset()">Create Closet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Closet View -->
+<div id="closet-view" class="view">
+  <div class="view-header" id="view-header">
+    <span class="view-icon" id="view-icon">🗄️</span>
+    <div>
+      <div class="view-name" id="view-name">Closet</div>
+      <div class="view-location" id="view-location"></div>
+    </div>
+    <button class="view-home-btn" onclick="goHome()" title="Home">🏠</button>
+  </div>
+  <div class="view-body">
+    <div class="items-header">
+      <span class="items-label">Contents</span>
+      <span style="font-size:13px;color:var(--muted)" id="items-count"></span>
+    </div>
+    <ul class="item-list" id="item-list"></ul>
+    <div class="empty-items" id="empty-items" style="display:none">Nothing here yet — add your first item below!</div>
+    <div class="add-row">
+      <input class="add-input" id="add-input" placeholder="Add an item…" />
+      <button class="add-btn" id="add-btn" onclick="addItem()">+</button>
+    </div>
+    <button class="save-btn" id="save-btn" onclick="saveItems()">Save Changes</button>
+    <div class="saved-msg" id="saved-msg">✓ Saved!</div>
+  </div>
+</div>
+
+<!-- Not Found -->
+<div id="not-found">
+  <div style="font-size:72px">📦</div>
+  <h2 style="font-size:26px">Closet Not Found</h2>
+  <p style="color:var(--muted);max-width:340px;line-height:1.6">
+    This QR code doesn't match any saved closet on this device.
+    Closets are stored in your browser — try the device you used to create them,
+    or import a backup via Settings.
+  </p>
+  <button class="btn-primary" style="margin-top:16px" onclick="goHome()">← Go Home</button>
+  <button class="btn-ghost" style="margin-top:8px" onclick="goHome();setTimeout(openSettings,200)">⬆ Import Backup</button>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settings-modal" onclick="closeSettingsOnBackdrop(event)">
+  <div class="modal">
+    <h2>⚙ Settings &amp; Backup</h2>
+    <p class="modal-sub">
+      Data is saved in your browser's localStorage. Export a backup to move your closets
+      to another device, or to recover from a "Closet Not Found" error.
+    </p>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Storage Info</div>
+      <div class="debug-box" id="debug-info">Loading…</div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Export / Import</div>
+      <div class="modal-actions">
+        <button class="btn-primary" onclick="exportData()">⬇ Export JSON</button>
+        <button class="btn-outline" onclick="document.getElementById('import-file').click()">⬆ Import JSON</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)" />
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="modal-section-title">Danger Zone</div>
+      <button class="btn-ghost" style="color:#c0392b;border-color:#e8a0a0" onclick="clearAllData()">🗑 Delete All Data</button>
+    </div>
+
+    <button class="modal-close" onclick="closeSettings()">Close</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const ICONS = ["🗄️","👔","👗","🧥","👟","🎒","📦","🏠","🛁","🏋️","🎨","📚","🧸","🧳","🪴"];
+const COLORS = ["#C8A96E","#7EB5A6","#D4847A","#8B9DC3","#A8C5A0","#C4936A","#9B8BB4","#7AADBE","#C9A0B4","#B09878"];
+
+// Key includes the page path so it always matches regardless of how the URL is typed
+const LS_KEY = "closetscan:" + window.location.pathname;
+
+let closets = {};
+let currentId = null;
+let selectedIcon = ICONS[0];
+let pendingItems = [];
+let dirty = false;
+
+// ── STORAGE ──────────────────────────────────────────────────────────────────
+function loadData() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { closets = JSON.parse(raw); return; }
+
+    // Migration: try old key from previous version
+    const oldKey = "closetscan-data";
+    const old = localStorage.getItem(oldKey);
+    if (old) {
+      closets = JSON.parse(old);
+      saveData();
+      localStorage.removeItem(oldKey);
+      showBanner("✅ Your existing closets have been migrated successfully.");
+      return;
+    }
+    closets = {};
+  } catch(e) {
+    console.error("loadData failed:", e);
+    closets = {};
+  }
+}
+
+function saveData() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(closets));
+  } catch(e) {
+    toast("⚠ Save failed — storage may be full");
+    console.error(e);
+  }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function today() { return new Date().toLocaleDateString(); }
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// Always build URLs from the exact current page origin + pathname
+function pageUrl() { return window.location.origin + window.location.pathname; }
+function closetUrl(id) { return pageUrl() + "#closet-" + id; }
+function qrSrc(id) {
+  return "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data="
+    + encodeURIComponent(closetUrl(id));
+}
+
+// ── BANNER & TOAST ────────────────────────────────────────────────────────────
+function showBanner(msg) {
+  const b = document.getElementById("status-banner");
+  b.textContent = msg; b.classList.add("show");
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2400);
+}
+
+// ── ROUTING ───────────────────────────────────────────────────────────────────
+function getHashId() {
+  const h = window.location.hash;
+  return h.startsWith("#closet-") ? h.slice(8) : null;
+}
+
+function router() {
+  const id = getHashId();
+  if (id) { openCloset(id); }
+  else { showView("manager"); renderGrid(); }
+}
+
+function showView(name) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("not-found").classList.remove("active");
+  const el = document.getElementById(name);
+  if (el) el.classList.add("active");
+}
+
+function goHome() {
+  history.pushState("", document.title, window.location.pathname);
+  router();
+}
+
+// ── MANAGER ───────────────────────────────────────────────────────────────────
+function renderGrid() {
+  const wrap = document.getElementById("closet-grid-wrap");
+  const entries = Object.entries(closets);
+  if (entries.length === 0) {
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🗄️</div>
+        <h2 class="empty-title">No closets yet</h2>
+        <p class="empty-sub">Create your first closet to get started</p>
+        <button class="btn-primary" onclick="showCreateForm()">Create Closet</button>
+      </div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="closet-grid">${entries.map(([id,c]) => cardHTML(id,c)).join("")}</div>`;
+}
+
+function cardHTML(id, c) {
+  return `
+  <div class="closet-card" id="card-${id}">
+    <div class="card-top" style="background:${c.color}">
+      <span class="card-icon">${c.icon}</span>
+      <button class="card-delete" onclick="deleteCloset('${id}')" title="Delete">✕</button>
+    </div>
+    <div class="card-body">
+      <div class="card-name">${esc(c.name)}</div>
+      ${c.location ? `<div class="card-loc">📍 ${esc(c.location)}</div>` : ""}
+      <div class="card-count">${c.items.length} item${c.items.length!==1?"s":""}</div>
+      <div class="card-actions">
+        <button class="card-btn card-btn-open" onclick="window.location.hash='closet-${id}'">Open</button>
+        <button class="card-btn card-btn-qr" onclick="toggleQR('${id}')">QR Code</button>
+      </div>
+      <div class="qr-panel" id="qr-${id}">
+        <img src="${qrSrc(id)}" alt="QR Code" loading="lazy"/>
+        <div class="qr-note">Scan to view &amp; edit this closet</div>
+        <div class="qr-url">${closetUrl(id)}</div>
+        <button class="qr-print-btn" onclick="printQR('${id}','${esc(c.name)}')">🖨 Print QR</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleQR(id) {
+  document.getElementById("qr-"+id).classList.toggle("open");
+}
+
+function printQR(id, name) {
+  const src = qrSrc(id).replace("180x180","300x300");
+  const url = closetUrl(id);
+  const win = window.open("","_blank");
+  win.document.write(`<!DOCTYPE html><html><head><title>QR - ${name}</title>
+  <style>
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    height:100vh;font-family:Georgia,serif;background:#F6F2EC;color:#2C2416;gap:12px}
+    img{width:280px;height:280px;border:8px solid #fff;border-radius:12px;
+    box-shadow:0 4px 20px rgba(0,0,0,.15)}
+    h1{font-size:26px;margin:0}p{font-size:13px;color:#8C7B5E;margin:0}
+    small{font-size:10px;color:#bbb;word-break:break-all;max-width:300px;text-align:center}
+  </style></head><body onload="window.print()">
+    <img src="${src}"/><h1>${name}</h1>
+    <p>Scan to view &amp; edit contents</p>
+    <small>${url}</small>
+  </body></html>`);
+  win.document.close();
+}
+
+function deleteCloset(id) {
+  if (!confirm(`Delete "${closets[id]?.name}"?\nThis cannot be undone.`)) return;
+  delete closets[id];
+  saveData(); renderGrid(); toast("Closet deleted");
+}
+
+// ── CREATE ────────────────────────────────────────────────────────────────────
+function showCreateForm() {
+  showView("create-form");
+  document.getElementById("input-name").value = "";
+  document.getElementById("input-location").value = "";
+  selectedIcon = ICONS[0]; renderIconGrid();
+  setTimeout(() => document.getElementById("input-name").focus(), 60);
+}
+
+function renderIconGrid() {
+  document.getElementById("icon-grid").innerHTML = ICONS.map(ic =>
+    `<button class="icon-btn${ic===selectedIcon?" selected":""}" onclick="selectIcon('${ic}')">${ic}</button>`
+  ).join("");
+}
+
+function selectIcon(ic) { selectedIcon = ic; renderIconGrid(); }
+
+function createCloset() {
+  const name = document.getElementById("input-name").value.trim();
+  if (!name) { document.getElementById("input-name").focus(); return; }
+  const location = document.getElementById("input-location").value.trim();
+  const id = uid();
+  const color = COLORS[Object.keys(closets).length % COLORS.length];
+  closets[id] = { name, location, icon: selectedIcon, color, items: [] };
+  saveData(); showView("manager"); renderGrid(); toast("Closet created!");
+}
+
+// ── CLOSET VIEW ───────────────────────────────────────────────────────────────
+function openCloset(id) {
+  const c = closets[id];
+  if (!c) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("not-found").classList.add("active");
+    return;
+  }
+  currentId = id;
+  pendingItems = c.items.map(i => ({...i}));
+  dirty = false;
+
+  document.getElementById("view-header").style.background = c.color;
+  document.getElementById("add-btn").style.background = c.color;
+  document.getElementById("save-btn").style.background = c.color;
+  document.getElementById("view-icon").textContent = c.icon;
+  document.getElementById("view-name").textContent = c.name;
+  document.getElementById("view-location").textContent = c.location ? "📍 "+c.location : "";
+
+  renderItems(); showView("closet-view");
+  const input = document.getElementById("add-input");
+  input.value = "";
+  input.onkeydown = e => { if(e.key==="Enter") addItem(); };
+  setTimeout(() => input.focus(), 100);
+}
+
+function renderItems() {
+  const list = document.getElementById("item-list");
+  const empty = document.getElementById("empty-items");
+  const countEl = document.getElementById("items-count");
+  const color = closets[currentId]?.color || "#C8A96E";
+
+  countEl.textContent = `${pendingItems.length} item${pendingItems.length!==1?"s":""}`;
+
+  if (pendingItems.length === 0) {
+    list.innerHTML = ""; empty.style.display = "block";
+  } else {
+    empty.style.display = "none";
+    list.innerHTML = pendingItems.map(item => `
+      <li class="item-row">
+        <span class="item-dot" style="background:${color}"></span>
+        <span class="item-text">${esc(item.text)}</span>
+        <span class="item-date">${item.added}</span>
+        <button class="item-remove" onclick="removeItem('${item.id}')" title="Remove">✕</button>
+      </li>`).join("");
+  }
+
+  document.getElementById("save-btn").classList.toggle("visible", dirty);
+  document.getElementById("saved-msg").classList.remove("visible");
+}
+
+function addItem() {
+  const input = document.getElementById("add-input");
+  const text = input.value.trim();
+  if (!text) return;
+  pendingItems.push({ id: uid(), text, added: today() });
+  input.value = ""; dirty = true; renderItems(); input.focus();
+}
+
+function removeItem(id) {
+  pendingItems = pendingItems.filter(i => i.id !== id);
+  dirty = true; renderItems();
+}
+
+function saveItems() {
+  if (!currentId) return;
+  closets[currentId].items = pendingItems.map(i => ({...i}));
+  saveData(); dirty = false;
+  document.getElementById("save-btn").classList.remove("visible");
+  document.getElementById("saved-msg").classList.add("visible");
+  setTimeout(() => document.getElementById("saved-msg").classList.remove("visible"), 2500);
+  toast("Saved!");
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+function openSettings() {
+  const count = Object.keys(closets).length;
+  const raw = localStorage.getItem(LS_KEY) || "{}";
+  const bytes = new Blob([raw]).size;
+  document.getElementById("debug-info").innerHTML =
+    `<b>Closets saved:</b> ${count}<br>` +
+    `<b>Storage key:</b> ${LS_KEY}<br>` +
+    `<b>Page URL:</b> ${pageUrl()}<br>` +
+    `<b>Data size:</b> ${(bytes/1024).toFixed(2)} KB`;
+  document.getElementById("settings-modal").classList.add("open");
+}
+
+function closeSettings() {
+  document.getElementById("settings-modal").classList.remove("open");
+}
+
+function closeSettingsOnBackdrop(e) {
+  if (e.target === document.getElementById("settings-modal")) closeSettings();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(closets, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "closetscan-backup.json";
+  a.click(); toast("Exported!");
+}
+
+function importData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (typeof imported !== "object" || Array.isArray(imported)) throw new Error();
+      const count = Object.keys(imported).length;
+      if (!confirm(`Import ${count} closet(s)?\nThis will REPLACE your current data.`)) return;
+      closets = imported; saveData(); closeSettings(); renderGrid();
+      toast(`Imported ${count} closet${count!==1?"s":""}!`);
+    } catch { alert("Invalid file. Please use a JSON exported from ClosetScan."); }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
+}
+
+function clearAllData() {
+  if (!confirm("Delete ALL closets and data? This cannot be undone.")) return;
+  closets = {}; localStorage.removeItem(LS_KEY);
+  closeSettings(); renderGrid(); toast("All data cleared");
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+window.addEventListener("hashchange", router);
+document.addEventListener("DOMContentLoaded", () => {
+  loadData();
+  document.getElementById("loading").style.display = "none";
+  router();
+});
+</script>
+</body>
+</html>
